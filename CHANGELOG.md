@@ -18,6 +18,16 @@ See [Babylon's CHANGELOG](packages/babylon/CHANGELOG.md) for the Babylon pre-7.0
 <!-- DO NOT CHANGE THESE COMMENTS - See .github/actions/trigger-github-release/update-changelog.js -->
 <!-- insert-new-changelog-here -->
 
+## v7.3.5 (2019-02-26)
+
+#### :eyeglasses: Spec Compliancy
+* `babel-generator`, `babel-parser`, `babel-plugin-transform-classes`, `babel-plugin-transform-flow-comments`, `babel-plugin-transform-flow-strip-types`, `babel-plugin-transform-new-target`
+  * [#9493](https://github.com/babel/babel/pull/9493) Introduce scope tracking in the parser ([@danez](https://github.com/danez))
+
+#### :house: Internal
+* [#9587](https://github.com/babel/babel/pull/9587) Update test262 ([@danez](https://github.com/danez))
+* [#9582](https://github.com/babel/babel/pull/9582) Minify bundles on circle for repl ([@danez](https://github.com/danez))
+
 ## v7.3.4 (2019-02-25)
 
 #### :bug: Bug Fix
