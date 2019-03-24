@@ -104,10 +104,7 @@ export default class StatementParser extends ExpressionParser {
     if (!this.isContextual("let")) {
       return false;
     }
-    skipWhiteSpace.lastIndex = this.state.pos;
-    const skip = skipWhiteSpace.exec(this.input);
-    // $FlowIgnore
-    const next = this.state.pos + skip[0].length;
+    const next = this.lookaheadChPos();
     const nextCh = this.input.charCodeAt(next);
     // For ambiguous cases, determine if a LexicalDeclaration (or only a
     // Statement) is allowed here. If context is not empty then only a Statement
@@ -127,6 +124,13 @@ export default class StatementParser extends ExpressionParser {
       if (!keywordRelationalOperator.test(ident)) return true;
     }
     return false;
+  }
+
+  isDecoratorDeclaration(): boolean {
+    return (
+      this.isContextual("decorator") &&
+      this.lookaheadCh(true) === charCodes.atSign
+    );
   }
 
   // Parse a single statement.
@@ -275,6 +279,16 @@ export default class StatementParser extends ExpressionParser {
           }
           this.next();
           return this.parseFunctionStatement(node, true, !context);
+        }
+
+        if (this.isDecoratorDeclaration()) {
+          if (context) {
+            this.unexpected(
+              null,
+              "Decorators can only be declared at the top level or inside a block",
+            );
+          }
+          return this.parseDecoratorDeclaration(node);
         }
       }
     }
@@ -740,6 +754,60 @@ export default class StatementParser extends ExpressionParser {
       );
 
     return this.finishNode(node, "WithStatement");
+  }
+
+  parseDecoratorDeclaration(
+    node: N.DecoratorDeclaration,
+  ): N.DecoratorDeclaration {
+    this.expectPlugin("static-decorators");
+
+    this.next();
+
+    node.id = this.parseDecoratorId();
+
+    if (this.eat(tt.parenL)) {
+      // parseBindingList returns $ReadOnlyArray<Pattern | TSParameterProperty>
+      // but node.params is $ReadOnlyArray<Pattern>. This isn't a problem in
+      // practice, because if allowModifiers is false it only return Patterns.
+      // $FlowIgnore
+      node.params = this.parseBindingList(
+        tt.parenR,
+        /* allowEmpty */ false,
+        /* allowModifiers */ false,
+      );
+    }
+
+    const decorators: N.Decorator[] = [];
+
+    this.expect(tt.braceL);
+    while (!this.eat(tt.braceR)) {
+      decorators.push(this.parseStaticDecorator());
+    }
+
+    node.body = decorators;
+
+    return this.finishNode(node, "DecoratorDeclaration");
+  }
+
+  parseDecoratorId() {
+    this.expect(tt.at);
+    this.assertNoSpace("Unexpected space in decorator name");
+    return this.parseIdentifier(true);
+  }
+
+  parseStaticDecorator(): N.Decorator {
+    const node: N.Decorator = this.startNode();
+    node.expression = this.parseDecoratorId();
+
+    if (this.eat(tt.parenL)) {
+      // parseBindingList returns $ReadOnlyArray<Pattern | TSParameterProperty>
+      // but node.params is $ReadOnlyArray<Pattern>. This isn't a problem in
+      // practice, because if allowModifiers is false it only return Patterns.
+      // $FlowIgnore
+      node.arguments = this.parseExprList(tt.parenR, /* allowEmpty */ true);
+    }
+
+    return this.finishNode(node, "Decorator");
   }
 
   parseEmptyStatement(node: N.EmptyStatement): N.EmptyStatement {
@@ -1739,11 +1807,19 @@ export default class StatementParser extends ExpressionParser {
 
   maybeParseExportDeclaration(node: N.Node): boolean {
     if (this.shouldParseExportDeclaration()) {
-      if (this.isContextual("async")) {
+      const isAsync = this.isContextual("async");
+      if (isAsync || this.isContextual("static-decorators")) {
         const next = this.lookahead();
 
-        // export async;
-        if (next.type !== tt._function) {
+        if (isAsync) {
+          // `export async;`
+          if (next.type !== tt._function) {
+            this.unexpected(
+              next.start,
+              `Unexpected token, expected "function"`,
+            );
+          }
+        } else if (next.type !== tt.at) {
           this.unexpected(next.start, `Unexpected token, expected "function"`);
         }
       }
@@ -1828,7 +1904,11 @@ export default class StatementParser extends ExpressionParser {
 
   isExportDefaultSpecifier(): boolean {
     if (this.match(tt.name)) {
-      return this.state.value !== "async" && this.state.value !== "let";
+      return (
+        this.state.value !== "async" &&
+        this.state.value !== "let" &&
+        !this.isDecoratorDeclaration()
+      );
     }
 
     if (!this.match(tt._default)) {
@@ -1846,12 +1926,10 @@ export default class StatementParser extends ExpressionParser {
     if (this.eatContextual("from")) {
       node.source = this.parseImportSource();
       this.checkExport(node);
+    } else if (expect) {
+      this.unexpected(this.state.start, `Unexpected token, expected "from"`);
     } else {
-      if (expect) {
-        this.unexpected();
-      } else {
-        node.source = null;
-      }
+      node.source = null;
     }
 
     this.semicolon();
@@ -1880,7 +1958,8 @@ export default class StatementParser extends ExpressionParser {
       this.state.type.keyword === "function" ||
       this.state.type.keyword === "class" ||
       this.isLet() ||
-      this.isAsyncFunction()
+      this.isAsyncFunction() ||
+      this.isDecoratorDeclaration()
     );
   }
 

@@ -115,6 +115,7 @@ export type ParserPlugin =
     'throwExpressions' |
     'pipelineOperator' |
     'nullishCoalescingOperator' |
+    'static-decorators' |
     ParserPluginWithOptions;
 
 export type ParserPluginWithOptions =

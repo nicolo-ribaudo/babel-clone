@@ -51,6 +51,7 @@ export type Declaration =
   | VariableDeclaration
   | ClassDeclaration
   | FunctionDeclaration
+  | DecoratorDeclaration
   | TsInterfaceDeclaration
   | TsTypeAliasDeclaration
   | TsEnumDeclaration
@@ -348,9 +349,22 @@ export type VariableDeclarator = NodeBase & {
 
 export type ArgumentPlaceholder = NodeBase & { type: "ArgumentPlaceholder" };
 
+export type DecoratorDeclaration = NodeBase & {
+  type: "DecoratorDeclaration",
+  id: Identifier,
+  params: $ReadOnlyArray<Pattern>,
+  body: $ReadOnlyArray<Decorator>,
+};
+
 export type Decorator = NodeBase & {
   type: "Decorator",
+
+  // NOTE: expression is used for "decorators" and "legacy-decorators",
+  //       id is used for "static-decorators"
+
   expression: Expression,
+  id: Identifier,
+
   arguments?: Array<Expression | SpreadElement>,
 };
 
