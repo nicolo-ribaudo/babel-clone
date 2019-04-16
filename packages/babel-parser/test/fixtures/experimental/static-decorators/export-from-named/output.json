@@ -1,7 +1,7 @@
 {
   "type": "File",
   "start": 0,
-  "end": 23,
+  "end": 27,
   "loc": {
     "start": {
       "line": 1,
@@ -9,13 +9,13 @@
     },
     "end": {
       "line": 1,
-      "column": 23
+      "column": 27
     }
   },
   "program": {
     "type": "Program",
     "start": 0,
-    "end": 23,
+    "end": 27,
     "loc": {
       "start": {
         "line": 1,
@@ -23,16 +23,16 @@
       },
       "end": {
         "line": 1,
-        "column": 23
+        "column": 27
       }
     },
     "sourceType": "module",
     "interpreter": null,
     "body": [
       {
-        "type": "ImportDeclaration",
+        "type": "ExportNamedDeclaration",
         "start": 0,
-        "end": 23,
+        "end": 27,
         "loc": {
           "start": {
             "line": 1,
@@ -40,55 +40,72 @@
           },
           "end": {
             "line": 1,
-            "column": 23
+            "column": 27
           }
         },
         "specifiers": [
           {
-            "type": "ImportDefaultSpecifier",
-            "start": 7,
-            "end": 11,
+            "type": "ExportSpecifier",
+            "start": 9,
+            "end": 13,
             "loc": {
               "start": {
                 "line": 1,
-                "column": 7
+                "column": 9
               },
               "end": {
                 "line": 1,
-                "column": 11
+                "column": 13
               }
             },
             "local": {
               "type": "DecoratorIdentifier",
-              "start": 7,
-              "end": 11,
+              "start": 9,
+              "end": 13,
               "loc": {
                 "start": {
                   "line": 1,
-                  "column": 7
+                  "column": 9
                 },
                 "end": {
                   "line": 1,
-                  "column": 11
+                  "column": 13
                 },
-                "identifierName": "dec"
+                "identifierName": "foo"
               },
-              "name": "dec"
+              "name": "foo"
+            },
+            "exported": {
+              "type": "DecoratorIdentifier",
+              "start": 9,
+              "end": 13,
+              "loc": {
+                "start": {
+                  "line": 1,
+                  "column": 9
+                },
+                "end": {
+                  "line": 1,
+                  "column": 13
+                },
+                "identifierName": "foo"
+              },
+              "name": "foo"
             }
           }
         ],
         "source": {
           "type": "StringLiteral",
-          "start": 17,
-          "end": 22,
+          "start": 21,
+          "end": 26,
           "loc": {
             "start": {
               "line": 1,
-              "column": 17
+              "column": 21
             },
             "end": {
               "line": 1,
-              "column": 22
+              "column": 26
             }
           },
           "extra": {
@@ -96,7 +113,8 @@
             "raw": "\"mod\""
           },
           "value": "mod"
-        }
+        },
+        "declaration": null
       }
     ],
     "directives": []

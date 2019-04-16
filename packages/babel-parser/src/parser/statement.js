@@ -20,6 +20,7 @@ import {
   SCOPE_OTHER,
   SCOPE_SIMPLE_CATCH,
   SCOPE_SUPER,
+  BIND_DECORATOR,
 } from "../util/scopeflags";
 
 // Reused empty array added for node fields that are always empty.
@@ -776,8 +777,7 @@ export default class StatementParser extends ExpressionParser {
     this.next();
 
     node.id = this.parseDecoratorId();
-
-    this.scope.declareName("@" + node.id.name, BIND_LEXICAL, node.id.start);
+    this.checkLVal(node.id, BIND_DECORATOR, null, "decorator name");
 
     if (this.eat(tt.parenL)) {
       // parseBindingList returns $ReadOnlyArray<Pattern | TSParameterProperty>
@@ -1935,11 +1935,14 @@ export default class StatementParser extends ExpressionParser {
 
   isExportDefaultSpecifier(): boolean {
     if (this.match(tt.name)) {
-      return (
-        this.state.value !== "async" &&
-        this.state.value !== "let" &&
-        !this.isDecoratorDeclaration()
-      );
+      if (this.isDecoratorDeclaration()) {
+        this.raise(
+          this.state.start,
+          "Decorator declarations are only allowed as named exports.",
+        );
+      }
+
+      return this.state.value !== "async" && this.state.value !== "let";
     }
 
     if (!this.match(tt._default)) {
@@ -1968,7 +1971,11 @@ export default class StatementParser extends ExpressionParser {
 
   shouldParseExportDeclaration(): boolean {
     if (this.match(tt.at)) {
-      this.expectOnePlugin(["decorators", "decorators-legacy"]);
+      this.expectOnePlugin([
+        "decorators",
+        "decorators-legacy",
+        "staticDecorators",
+      ]);
       if (this.hasPlugin("decorators")) {
         if (this.getPluginOption("decorators", "decoratorsBeforeExport")) {
           this.unexpected(
@@ -1981,6 +1988,8 @@ export default class StatementParser extends ExpressionParser {
           return true;
         }
       }
+
+      return this.hasPlugin("staticDecorators");
     }
 
     return (
@@ -2117,15 +2126,32 @@ export default class StatementParser extends ExpressionParser {
         if (this.eat(tt.braceR)) break;
       }
 
-      const node = this.startNode();
-      node.local = this.parseIdentifier(true);
-      node.exported = this.eatContextual("as")
-        ? this.parseIdentifier(true)
-        : node.local.__clone();
-      nodes.push(this.finishNode(node, "ExportSpecifier"));
+      nodes.push(this.parseExportSpecifier());
     }
 
     return nodes;
+  }
+
+  parseExportSpecifier(): N.ExportSpecifier {
+    const specifier: N.ExportSpecifier = this.startNode();
+
+    const isDecorator = this.match(tt.at);
+    if (isDecorator) {
+      this.expectPlugin("staticDecorators");
+      specifier.local = this.parseDecoratorId();
+    } else {
+      specifier.local = this.parseIdentifier(true);
+    }
+
+    if (this.eatContextual("as")) {
+      specifier.exported = isDecorator
+        ? this.parseDecoratorId()
+        : this.parseIdentifier(true);
+    } else {
+      specifier.exported = specifier.local.__clone();
+    }
+
+    return this.finishNode(specifier, "ExportSpecifier");
   }
 
   // Parses import declaration.
@@ -2154,8 +2180,8 @@ export default class StatementParser extends ExpressionParser {
   shouldParseDefaultImport(node: N.ImportDeclaration): boolean {
     return (
       this.match(tt.name) ||
-      // expectPlugin("staticDecorators") will be
-      // called by parseImportSpecifierLocal.
+      // Decorators are not actually allowed here, but
+      // parseImportSpecifierLocal will throw a nice error
       this.match(tt.at)
     );
   }
@@ -2168,7 +2194,10 @@ export default class StatementParser extends ExpressionParser {
   ): void {
     if (this.match(tt.at)) {
       this.expectPlugin("staticDecorators");
-      specifier.local = this.parseDecoratorId();
+      this.unexpected(
+        this.state.start,
+        "Invalid decorator in " + contextDescription,
+      );
     } else {
       specifier.local = this.parseIdentifier();
     }
@@ -2238,7 +2267,7 @@ export default class StatementParser extends ExpressionParser {
   }
 
   parseImportSpecifier(node: N.ImportDeclaration): void {
-    const specifier = this.startNode();
+    const specifier: N.ImportSpecifier = this.startNode();
 
     const isDecorator = this.match(tt.at);
     if (isDecorator) {
@@ -2265,7 +2294,7 @@ export default class StatementParser extends ExpressionParser {
     }
     this.checkLVal(
       specifier.local,
-      BIND_LEXICAL,
+      isDecorator ? BIND_DECORATOR : BIND_LEXICAL,
       undefined,
       "import specifier",
     );

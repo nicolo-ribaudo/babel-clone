@@ -363,7 +363,6 @@ export default class LValParser extends NodeUtils {
             checkClashes[key] = true;
           }
         }
-      /* falls through */
 
       case "DecoratorIdentifier":
         if (!(bindingType & BIND_NONE)) {

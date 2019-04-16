@@ -1,3 +1,4 @@
 {
-  "sourceType": "module"
+  "sourceType": "module",
+  "throws": "Invalid decorator in default import specifier (1:7)"
 }

@@ -371,6 +371,8 @@ export type Decorator = NodeBase & {
 export type DecoratorIdentifier = NodeBase & {
   type: "DecoratorIdentifier",
   name: string,
+
+  __clone(): DecoratorIdentifier,
 };
 
 export type Directive = NodeBase & {
@@ -821,7 +823,7 @@ export type AnyExport =
   | TsNamespaceExportDeclaration;
 
 export type ModuleSpecifier = NodeBase & {
-  local: Identifier,
+  local: Identifier | DecoratorIdentifier,
 };
 
 // Imports
@@ -839,7 +841,7 @@ export type ImportDeclaration = NodeBase & {
 
 export type ImportSpecifier = ModuleSpecifier & {
   type: "ImportSpecifier",
-  imported: Identifier,
+  imported: Identifier | DecoratorIdentifier,
 };
 
 export type ImportDefaultSpecifier = ModuleSpecifier & {
@@ -863,13 +865,13 @@ export type ExportNamedDeclaration = NodeBase & {
 
 export type ExportSpecifier = NodeBase & {
   type: "ExportSpecifier",
-  exported: Identifier,
-  local: Identifier,
+  exported: Identifier | DecoratorIdentifier,
+  local: Identifier | DecoratorIdentifier,
 };
 
 export type ExportDefaultSpecifier = NodeBase & {
   type: "ExportDefaultSpecifier",
-  exported: Identifier,
+  exported: Identifier | DecoratorIdentifier,
 };
 
 export type ExportDefaultDeclaration = NodeBase & {
@@ -878,6 +880,7 @@ export type ExportDefaultDeclaration = NodeBase & {
     | OptFunctionDeclaration
     | OptTSDeclareFunction
     | OptClassDeclaration
+    | DecoratorDeclaration
     | Expression,
 };
 
