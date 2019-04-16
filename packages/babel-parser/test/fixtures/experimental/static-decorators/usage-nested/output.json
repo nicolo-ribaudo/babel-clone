@@ -106,13 +106,13 @@
                     }
                   },
                   "id": {
-                    "type": "Identifier",
-                    "start": 13,
+                    "type": "DecoratorIdentifier",
+                    "start": 12,
                     "end": 16,
                     "loc": {
                       "start": {
                         "line": 2,
-                        "column": 3
+                        "column": 2
                       },
                       "end": {
                         "line": 2,
@@ -200,13 +200,13 @@
                                   }
                                 },
                                 "id": {
-                                  "type": "Identifier",
-                                  "start": 32,
+                                  "type": "DecoratorIdentifier",
+                                  "start": 31,
                                   "end": 35,
                                   "loc": {
                                     "start": {
                                       "line": 3,
-                                      "column": 5
+                                      "column": 4
                                     },
                                     "end": {
                                       "line": 3,

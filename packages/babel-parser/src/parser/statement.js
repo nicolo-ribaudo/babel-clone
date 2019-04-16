@@ -379,6 +379,10 @@ export default class StatementParser extends ExpressionParser {
       "staticDecorators",
     ]);
 
+    if (this.hasPlugin("staticDecorators")) {
+      return this.parseStaticDecorator();
+    }
+
     const node = this.startNode();
 
     // Every time a decorator class expression is evaluated, a new empty array is pushed onto the stack
@@ -411,20 +415,6 @@ export default class StatementParser extends ExpressionParser {
     } else if (this.hasPlugin("decorators-legacy")) {
       this.next();
       node.expression = this.parseMaybeAssign();
-    } else if (this.hasPlugin("staticDecorators")) {
-      node.id = this.parseDecoratorId();
-
-      if (this.match(tt.dot)) {
-        this.raise(
-          this.state.start,
-          "Static decorators must be simple identifiers with optional parameters.",
-        );
-      }
-
-      if (this.eat(tt.parenL)) {
-        node.arguments = this.parseCallExpressionArguments(tt.parenR, false);
-        this.toReferencedList(node.arguments);
-      }
     }
 
     this.state.decoratorStack.pop();
@@ -813,22 +803,39 @@ export default class StatementParser extends ExpressionParser {
     return this.finishNode(node, "DecoratorDeclaration");
   }
 
-  parseDecoratorId() {
+  parseDecoratorId(): N.DecoratorIdentifier {
+    const node = this.startNode();
     this.expect(tt.at);
     this.assertNoSpace("Unexpected space in decorator name");
-    return this.parseIdentifier(true);
+
+    const name = this.parseIdentifierName(node.start, true);
+
+    return this.createIdentifier(node, name, "DecoratorIdentifier");
   }
 
   parseStaticDecorator(): N.Decorator {
     const node: N.Decorator = this.startNode();
-    node.expression = this.parseDecoratorId();
+    node.id = this.parseDecoratorId();
+
+    if (this.match(tt.dot)) {
+      this.raise(
+        this.state.start,
+        "Static decorators must be simple identifiers with optional parameters.",
+      );
+    }
 
     if (this.eat(tt.parenL)) {
+      // Every time a decorator class expression is evaluated, a new empty array is pushed onto the stack
+      // So that the decorators of any nested class expressions will be dealt with separately
+      this.state.decoratorStack.push([]);
+
       // parseBindingList returns $ReadOnlyArray<Pattern | TSParameterProperty>
       // but node.params is $ReadOnlyArray<Pattern>. This isn't a problem in
       // practice, because if allowModifiers is false it only return Patterns.
       // $FlowIgnore
       node.arguments = this.parseExprList(tt.parenR, /* allowEmpty */ true);
+
+      this.state.decoratorStack.pop();
     }
 
     return this.finishNode(node, "Decorator");
@@ -2145,7 +2152,12 @@ export default class StatementParser extends ExpressionParser {
 
   // eslint-disable-next-line no-unused-vars
   shouldParseDefaultImport(node: N.ImportDeclaration): boolean {
-    return this.match(tt.name);
+    return (
+      this.match(tt.name) ||
+      // expectPlugin("staticDecorators") will be
+      // called by parseImportSpecifierLocal.
+      this.match(tt.at)
+    );
   }
 
   parseImportSpecifierLocal(
@@ -2154,6 +2166,11 @@ export default class StatementParser extends ExpressionParser {
     type: string,
     contextDescription: string,
   ): void {
+    if (this.match(tt.at)) {
+      this.expectPlugin("staticDecorators");
+      specifier.local = this.parseDecoratorId();
+    }
+
     specifier.local = this.parseIdentifier();
     this.checkLVal(
       specifier.local,

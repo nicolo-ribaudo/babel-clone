@@ -351,7 +351,7 @@ export type ArgumentPlaceholder = NodeBase & { type: "ArgumentPlaceholder" };
 
 export type DecoratorDeclaration = NodeBase & {
   type: "DecoratorDeclaration",
-  id: Identifier,
+  id: DecoratorIdentifier,
   params: $ReadOnlyArray<Pattern>,
   body: $ReadOnlyArray<Decorator>,
 };
@@ -360,12 +360,17 @@ export type Decorator = NodeBase & {
   type: "Decorator",
 
   // NOTE: expression is used for "decorators" and "legacy-decorators",
-  //       id is used for "staticDecorators"
+  //       name is used for "staticDecorators"
 
   expression: Expression,
-  id: Identifier,
+  id: DecoratorIdentifier,
 
   arguments?: Array<Expression | SpreadElement>,
+};
+
+export type DecoratorIdentifier = NodeBase & {
+  type: "DecoratorIdentifier",
+  name: string,
 };
 
 export type Directive = NodeBase & {
