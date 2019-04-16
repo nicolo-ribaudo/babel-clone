@@ -2169,9 +2169,10 @@ export default class StatementParser extends ExpressionParser {
     if (this.match(tt.at)) {
       this.expectPlugin("staticDecorators");
       specifier.local = this.parseDecoratorId();
+    } else {
+      specifier.local = this.parseIdentifier();
     }
 
-    specifier.local = this.parseIdentifier();
     this.checkLVal(
       specifier.local,
       BIND_LEXICAL,
@@ -2238,16 +2239,28 @@ export default class StatementParser extends ExpressionParser {
 
   parseImportSpecifier(node: N.ImportDeclaration): void {
     const specifier = this.startNode();
-    specifier.imported = this.parseIdentifier(true);
-    if (this.eatContextual("as")) {
-      specifier.local = this.parseIdentifier();
+
+    const isDecorator = this.match(tt.at);
+    if (isDecorator) {
+      this.expectPlugin("staticDecorators");
+      specifier.imported = this.parseDecoratorId();
     } else {
-      this.checkReservedWord(
-        specifier.imported.name,
-        specifier.start,
-        true,
-        true,
-      );
+      specifier.imported = this.parseIdentifier(true);
+    }
+
+    if (this.eatContextual("as")) {
+      specifier.local = isDecorator
+        ? this.parseDecoratorId()
+        : this.parseIdentifier();
+    } else {
+      if (!isDecorator) {
+        this.checkReservedWord(
+          specifier.imported.name,
+          specifier.start,
+          true,
+          true,
+        );
+      }
       specifier.local = specifier.imported.__clone();
     }
     this.checkLVal(
