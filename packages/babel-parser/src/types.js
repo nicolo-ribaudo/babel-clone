@@ -360,7 +360,7 @@ export type Decorator = NodeBase & {
   type: "Decorator",
 
   // NOTE: expression is used for "decorators" and "legacy-decorators",
-  //       id is used for "static-decorators"
+  //       id is used for "staticDecorators"
 
   expression: Expression,
   id: Identifier,

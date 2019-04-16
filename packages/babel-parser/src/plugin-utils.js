@@ -41,7 +41,7 @@ export function getPluginOption(
 const PIPELINE_PROPOSALS = ["minimal", "smart"];
 
 export function validatePlugins(plugins: PluginList) {
-  if (hasPlugin(plugins, "static-decorators")) {
+  if (hasPlugin(plugins, "staticDecorators")) {
     if (hasPlugin(plugins, "decorators")) {
       throw new Error(
         "Cannot use the decorators and static-decorators plugins together",

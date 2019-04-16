@@ -354,8 +354,9 @@ export default class StatementParser extends ExpressionParser {
       }
 
       if (
-        this.hasPlugin("decorators") &&
-        !this.getPluginOption("decorators", "decoratorsBeforeExport")
+        (this.hasPlugin("decorators") &&
+          !this.getPluginOption("decorators", "decoratorsBeforeExport")) ||
+        this.hasPlugin("staticDecorators")
       ) {
         this.raise(
           this.state.start,
@@ -372,15 +373,20 @@ export default class StatementParser extends ExpressionParser {
   }
 
   parseDecorator(): N.Decorator {
-    this.expectOnePlugin(["decorators-legacy", "decorators"]);
+    this.expectOnePlugin([
+      "decorators-legacy",
+      "decorators",
+      "staticDecorators",
+    ]);
 
     const node = this.startNode();
-    this.next();
+
+    // Every time a decorator class expression is evaluated, a new empty array is pushed onto the stack
+    // So that the decorators of any nested class expressions will be dealt with separately
+    this.state.decoratorStack.push([]);
 
     if (this.hasPlugin("decorators")) {
-      // Every time a decorator class expression is evaluated, a new empty array is pushed onto the stack
-      // So that the decorators of any nested class expressions will be dealt with separately
-      this.state.decoratorStack.push([]);
+      this.next();
 
       const startPos = this.state.start;
       const startLoc = this.state.startLoc;
@@ -402,10 +408,26 @@ export default class StatementParser extends ExpressionParser {
       }
 
       node.expression = this.parseMaybeDecoratorArguments(expr);
-      this.state.decoratorStack.pop();
-    } else {
+    } else if (this.hasPlugin("decorators-legacy")) {
+      this.next();
       node.expression = this.parseMaybeAssign();
+    } else if (this.hasPlugin("staticDecorators")) {
+      node.id = this.parseDecoratorId();
+
+      if (this.match(tt.dot)) {
+        this.raise(
+          this.state.start,
+          "Static decorators must be simple identifiers with optional parameters.",
+        );
+      }
+
+      if (this.eat(tt.parenL)) {
+        node.arguments = this.parseCallExpressionArguments(tt.parenR, false);
+        this.toReferencedList(node.arguments);
+      }
     }
+
+    this.state.decoratorStack.pop();
     return this.finishNode(node, "Decorator");
   }
 
@@ -759,11 +781,13 @@ export default class StatementParser extends ExpressionParser {
   parseDecoratorDeclaration(
     node: N.DecoratorDeclaration,
   ): N.DecoratorDeclaration {
-    this.expectPlugin("static-decorators");
+    this.expectPlugin("staticDecorators");
 
     this.next();
 
     node.id = this.parseDecoratorId();
+
+    this.scope.declareName("@" + node.id.name, BIND_LEXICAL, node.id.start);
 
     if (this.eat(tt.parenL)) {
       // parseBindingList returns $ReadOnlyArray<Pattern | TSParameterProperty>
@@ -781,7 +805,7 @@ export default class StatementParser extends ExpressionParser {
 
     this.expect(tt.braceL);
     while (!this.eat(tt.braceR)) {
-      decorators.push(this.parseStaticDecorator());
+      decorators.push(this.parseDecorator());
     }
 
     node.body = decorators;
@@ -1808,7 +1832,7 @@ export default class StatementParser extends ExpressionParser {
   maybeParseExportDeclaration(node: N.Node): boolean {
     if (this.shouldParseExportDeclaration()) {
       const isAsync = this.isContextual("async");
-      if (isAsync || this.isContextual("static-decorators")) {
+      if (isAsync || this.isContextual("decorator")) {
         const next = this.lookahead();
 
         if (isAsync) {
@@ -1820,7 +1844,7 @@ export default class StatementParser extends ExpressionParser {
             );
           }
         } else if (next.type !== tt.at) {
-          this.unexpected(next.start, `Unexpected token, expected "function"`);
+          this.unexpected(this.state.start, `Unexpected token`);
         }
       }
 
