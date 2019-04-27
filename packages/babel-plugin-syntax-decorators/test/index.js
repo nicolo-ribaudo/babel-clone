@@ -28,6 +28,28 @@ describe("'legacy' option", function() {
   });
 });
 
+describe("'static' option", function() {
+  test("must be boolean", function() {
+    expect(makeParser("", { static: "static" })).toThrow();
+  });
+
+  test("can't be used with legacy decorators", function() {
+    expect(makeParser("", { static: true, legacy: true })).toThrow();
+  });
+
+  test("'static': false", function() {
+    expect(makeParser("decorator @dec {}", { static: false })).toThrow();
+  });
+
+  test("'static': true", function() {
+    expect(makeParser("decorator @dec {}", { static: true })).not.toThrow();
+  });
+
+  test("defaults to 'false'", function() {
+    expect(makeParser("decorator @dec {}")).toThrow();
+  });
+});
+
 describe("'decoratorsBeforeExport' option", function() {
   test("must be boolean", function() {
     expect(makeParser("", { decoratorsBeforeExport: "before" })).toThrow();
@@ -40,6 +62,12 @@ describe("'decoratorsBeforeExport' option", function() {
   test("is incompatible with legacy", function() {
     expect(
       makeParser("", { decoratorsBeforeExport: false, legacy: true }),
+    ).toThrow();
+  });
+
+  test("is incompatible with static", function() {
+    expect(
+      makeParser("", { decoratorsBeforeExport: false, static: true }),
     ).toThrow();
   });
 
