@@ -726,6 +726,18 @@ export function assertImport(node: Object, opts?: Object = {}): void {
 export function assertDecorator(node: Object, opts?: Object = {}): void {
   assert("Decorator", node, opts);
 }
+export function assertDecoratorIdentifier(
+  node: Object,
+  opts?: Object = {},
+): void {
+  assert("DecoratorIdentifier", node, opts);
+}
+export function assertDecoratorDeclaration(
+  node: Object,
+  opts?: Object = {},
+): void {
+  assert("DecoratorDeclaration", node, opts);
+}
 export function assertDoExpression(node: Object, opts?: Object = {}): void {
   assert("DoExpression", node, opts);
 }

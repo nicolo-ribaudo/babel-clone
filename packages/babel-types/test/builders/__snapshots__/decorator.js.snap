@@ -1,0 +1,38 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`builders decorator legacy 1`] = `
+Object {
+  "expression": Object {
+    "name": "foo",
+    "type": "Identifier",
+  },
+  "type": "Decorator",
+}
+`;
+
+exports[`builders decorator static - args 1`] = `
+Object {
+  "arguments": Array [
+    Object {
+      "name": "bar",
+      "type": "Identifier",
+    },
+  ],
+  "id": Object {
+    "name": "foo",
+    "type": "DecoratorIdentifier",
+  },
+  "type": "Decorator",
+}
+`;
+
+exports[`builders decorator static - no args 1`] = `
+Object {
+  "arguments": undefined,
+  "id": Object {
+    "name": "foo",
+    "type": "DecoratorIdentifier",
+  },
+  "type": "Decorator",
+}
+`;

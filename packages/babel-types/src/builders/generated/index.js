@@ -652,6 +652,14 @@ export function Decorator(...args: Array<any>): Object {
   return builder("Decorator", ...args);
 }
 export { Decorator as decorator };
+export function DecoratorIdentifier(...args: Array<any>): Object {
+  return builder("DecoratorIdentifier", ...args);
+}
+export { DecoratorIdentifier as decoratorIdentifier };
+export function DecoratorDeclaration(...args: Array<any>): Object {
+  return builder("DecoratorDeclaration", ...args);
+}
+export { DecoratorDeclaration as decoratorDeclaration };
 export function DoExpression(...args: Array<any>): Object {
   return builder("DoExpression", ...args);
 }

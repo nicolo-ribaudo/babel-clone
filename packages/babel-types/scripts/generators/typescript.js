@@ -49,6 +49,13 @@ interface BaseNode {
 
 export type Node = ${t.TYPES.sort().join(" | ")};\n\n`;
 
+const customBuilders = {
+  Decorator: [
+    `expression: Expression`,
+    `id: DecoratorIdentifier, _arguments?: Array<Expression>`,
+  ],
+};
+
 //
 
 const lines = [];
@@ -95,11 +102,14 @@ for (const type in t.NODE_FIELDS) {
   ${struct.join("\n  ").trim()}
 }\n\n`;
 
-  // super and import are reserved words in JavaScript
-  if (type !== "Super" && type !== "Import") {
-    lines.push(
-      `export function ${toFunctionName(type)}(${args.join(", ")}): ${type};`
-    );
+  const id = toFunctionName(type);
+  if (t.CUSTOM_BUILDERS[type]) {
+    for (const args of customBuilders[type]) {
+      lines.push(`export function ${id}(${args}): ${type};`);
+    }
+  } else if (type !== "Super" && type !== "Import") {
+    // super and import are reserved words in JavaScript
+    lines.push(`export function ${id}(${args.join(", ")}): ${type};`);
   }
 }
 
@@ -189,6 +199,7 @@ function isNullable(field) {
 }
 
 function sortFieldNames(fields, type) {
+  if (!t.BUILDER_KEYS[type]) return fields;
   return fields.sort((fieldA, fieldB) => {
     const indexA = t.BUILDER_KEYS[type].indexOf(fieldA);
     const indexB = t.BUILDER_KEYS[type].indexOf(fieldB);

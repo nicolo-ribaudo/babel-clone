@@ -2301,6 +2301,34 @@ export function isDecorator(node: ?Object, opts?: Object): boolean {
 
   return false;
 }
+export function isDecoratorIdentifier(node: ?Object, opts?: Object): boolean {
+  if (!node) return false;
+
+  const nodeType = node.type;
+  if (nodeType === "DecoratorIdentifier") {
+    if (typeof opts === "undefined") {
+      return true;
+    } else {
+      return shallowEqual(node, opts);
+    }
+  }
+
+  return false;
+}
+export function isDecoratorDeclaration(node: ?Object, opts?: Object): boolean {
+  if (!node) return false;
+
+  const nodeType = node.type;
+  if (nodeType === "DecoratorDeclaration") {
+    if (typeof opts === "undefined") {
+      return true;
+    } else {
+      return shallowEqual(node, opts);
+    }
+  }
+
+  return false;
+}
 export function isDoExpression(node: ?Object, opts?: Object): boolean {
   if (!node) return false;
 

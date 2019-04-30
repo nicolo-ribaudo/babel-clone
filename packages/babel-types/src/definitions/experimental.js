@@ -10,6 +10,8 @@ import {
   classMethodOrDeclareMethodCommon,
 } from "./es2015";
 
+import * as customBuilders from "../builders/custom";
+
 defineType("ArgumentPlaceholder", {});
 
 defineType("AwaitExpression", {
@@ -194,10 +196,52 @@ defineType("Import", {
 });
 
 defineType("Decorator", {
-  visitor: ["expression"],
+  visitor: ["expression", "id", "arguments"],
+  builder: customBuilders.Decorator,
   fields: {
     expression: {
       validate: assertNodeType("Expression"),
+    },
+    id: {
+      validate: assertNodeType("DecoratorIdentifier"),
+    },
+    arguments: {
+      validate: chain(
+        assertValueType("array"),
+        assertEach(assertNodeType("Expression")),
+      ),
+      optional: true,
+    },
+  },
+});
+
+defineType("DecoratorIdentifier", {
+  builder: ["name"],
+  fields: {
+    name: {
+      validate: assertValueType("string"),
+    },
+  },
+});
+
+defineType("DecoratorDeclaration", {
+  visitor: ["id", "params", "body"],
+  fields: {
+    id: {
+      validate: assertNodeType("DecoratorIdentifier"),
+    },
+    params: {
+      validate: chain(
+        assertValueType("array"),
+        assertEach(assertNodeType("Identifier", "Pattern", "RestElement")),
+      ),
+      default: null,
+    },
+    body: {
+      validate: chain(
+        assertValueType("array"),
+        assertEach(assertNodeType("Decorator")),
+      ),
     },
   },
 });

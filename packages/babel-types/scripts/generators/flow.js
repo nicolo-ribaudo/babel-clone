@@ -45,6 +45,13 @@ declare class ${NODE_PREFIX} {
   loc: ?${NODE_PREFIX}SourceLocation;
 }\n\n`;
 
+const customBuilders = {
+  Decorator: [
+    `expression: ${NODE_PREFIX}Expression`,
+    `id: ${NODE_PREFIX}DecoratorIdentifier, _arguments?: Array<${NODE_PREFIX}Expression>`,
+  ],
+};
+
 //
 
 const lines = [];
@@ -57,6 +64,7 @@ for (const type in t.NODE_FIELDS) {
 
   Object.keys(t.NODE_FIELDS[type])
     .sort((fieldA, fieldB) => {
+      if (!t.BUILDER_KEYS[type]) return 0;
       const indexA = t.BUILDER_KEYS[type].indexOf(fieldA);
       const indexB = t.BUILDER_KEYS[type].indexOf(fieldB);
       if (indexA === indexB) return fieldA < fieldB ? -1 : 1;
@@ -92,12 +100,15 @@ for (const type in t.NODE_FIELDS) {
   ${struct.join("\n  ").trim()}
 }\n\n`;
 
-  // Flow chokes on super() and import() :/
-  if (type !== "Super" && type !== "Import") {
+  const id = toFunctionName(type);
+  if (t.CUSTOM_BUILDERS[type]) {
+    for (const args of customBuilders[type]) {
+      lines.push(`declare function ${id}(${args}): ${NODE_PREFIX}${type};`);
+    }
+  } else if (type !== "Super" && type !== "Import") {
+    // Flow chokes on super() and import() :/
     lines.push(
-      `declare function ${toFunctionName(type)}(${args.join(
-        ", "
-      )}): ${NODE_PREFIX}${type};`
+      `declare function ${id}(${args.join(", ")}): ${NODE_PREFIX}${type};`
     );
   }
 }

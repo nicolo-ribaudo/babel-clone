@@ -1,12 +1,15 @@
 // @flow
 import is from "../validators/is";
 
+type Builder = (...args: any[]) => BabelNode;
+
 export const VISITOR_KEYS: { [string]: Array<string> } = {};
 export const ALIAS_KEYS: { [string]: Array<string> } = {};
 export const FLIPPED_ALIAS_KEYS: { [string]: Array<string> } = {};
 export const NODE_FIELDS: { [string]: {} } = {};
 export const BUILDER_KEYS: { [string]: Array<string> } = {};
 export const DEPRECATED_KEYS: { [string]: string } = {};
+export const CUSTOM_BUILDERS: { [string]: Builder } = {};
 
 function getType(val) {
   if (Array.isArray(val)) {
@@ -179,7 +182,7 @@ export default function defineType(
     },
     visitor?: Array<string>,
     aliases?: Array<string>,
-    builder?: Array<string>,
+    builder?: Array<string> | Builder,
     inherits?: string,
     deprecatedAlias?: string,
   } = {},
@@ -189,22 +192,26 @@ export default function defineType(
   const fields: Object = opts.fields || inherits.fields || {};
   const visitor: Array<string> = opts.visitor || inherits.visitor || [];
   const aliases: Array<string> = opts.aliases || inherits.aliases || [];
-  const builder: Array<string> =
-    opts.builder || inherits.builder || opts.visitor || [];
+  const builderKeys: Array<string> =
+    typeof opts.builder === "function"
+      ? []
+      : opts.builder ||
+        (Array.isArray(inherits.builder) ? inherits.builder : opts.visitor) ||
+        [];
 
   if (opts.deprecatedAlias) {
     DEPRECATED_KEYS[opts.deprecatedAlias] = type;
   }
 
   // ensure all field keys are represented in `fields`
-  for (const key of (visitor.concat(builder): Array<string>)) {
+  for (const key of (visitor.concat(builderKeys): Array<string>)) {
     fields[key] = fields[key] || {};
   }
 
   for (const key of Object.keys(fields)) {
     const field = fields[key];
 
-    if (builder.indexOf(key) === -1) {
+    if (builderKeys.indexOf(key) === -1) {
       field.optional = true;
     }
     if (field.default === undefined) {
@@ -215,13 +222,22 @@ export default function defineType(
   }
 
   VISITOR_KEYS[type] = opts.visitor = visitor;
-  BUILDER_KEYS[type] = opts.builder = builder;
   NODE_FIELDS[type] = opts.fields = fields;
   ALIAS_KEYS[type] = opts.aliases = aliases;
   aliases.forEach(alias => {
     FLIPPED_ALIAS_KEYS[alias] = FLIPPED_ALIAS_KEYS[alias] || [];
     FLIPPED_ALIAS_KEYS[alias].push(type);
   });
+
+  if (typeof opts.builder !== "function") {
+    BUILDER_KEYS[type] = opts.builder = builderKeys;
+    // $FlowIgnore avoid searching non-existing node types on the prototype
+    CUSTOM_BUILDERS[type] = null;
+  } else {
+    CUSTOM_BUILDERS[type] = opts.builder;
+    // $FlowIgnore avoid searching non-existing node types on the prototype
+    BUILDER_KEYS[type] = null;
+  }
 
   store[type] = opts;
 }
