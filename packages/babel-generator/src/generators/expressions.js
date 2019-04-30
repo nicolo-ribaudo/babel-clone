@@ -93,9 +93,29 @@ export function Super() {
 }
 
 export function Decorator(node: Object) {
-  this.token("@");
-  this.print(node.expression, node);
+  if (node.expression) {
+    this.token("@");
+    this.print(node.expression, node);
+    this.newline();
+    return;
+  }
+
+  this.print(node.id, node);
+
+  if (node.arguments && node.arguments.length) {
+    this.token("(");
+    this.printList(node.arguments, node);
+    this.token(")");
+  }
+
   this.newline();
+}
+
+export function DecoratorIdentifier(node: Object) {
+  this.exactSource(node.loc, () => {
+    this.token("@");
+    this.word(node.name);
+  });
 }
 
 export function OptionalMemberExpression(node: Object) {

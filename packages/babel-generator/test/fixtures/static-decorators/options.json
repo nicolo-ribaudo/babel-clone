@@ -1,0 +1,4 @@
+{
+  "plugins": ["staticDecorators"],
+  "sourceType": "module"
+}

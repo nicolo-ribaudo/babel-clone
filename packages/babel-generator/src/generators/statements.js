@@ -299,3 +299,25 @@ export function VariableDeclarator(node: Object) {
     this.print(node.init, node);
   }
 }
+
+export function DecoratorDeclaration(node: Object) {
+  this.word("decorator");
+  this.space();
+  this.print(node.id, node);
+
+  if (node.params && node.params.length) {
+    this.token("(");
+    this.printList(node.params, node);
+    this.token(")");
+  }
+
+  this.space();
+  this.token("{");
+
+  if (node.body.length > 0) {
+    this.newline();
+    this.printJoin(node.body, node, { indent: true });
+  }
+
+  this.token("}");
+}
