@@ -1,5 +1,6 @@
 import { template, traverse, types as t } from "@babel/core";
 import { environmentVisitor } from "@babel/helper-replace-supers";
+import { hasOwnDecorators } from "./decorators/misc";
 
 const findBareSupers = traverse.visitors.merge([
   {
@@ -82,30 +83,63 @@ export function injectInitialization(path, constructor, nodes, renamer) {
   }
 }
 
-export function extractComputedKeys(ref, path, computedPaths, file) {
+export function extractImpureExpressions(ref, path, paths, file) {
   const declarations = [];
+  const classBinding = path.node.id && path.scope.getBinding(path.node.id.name);
 
-  for (const computedPath of computedPaths) {
-    computedPath.traverse(classFieldDefinitionEvaluationTDZVisitor, {
-      classBinding: path.node.id && path.scope.getBinding(path.node.id.name),
-      file,
-    });
+  extractDecorators(path, declarations);
 
-    const computedNode = computedPath.node;
-    // Make sure computed property names are only evaluated once (upon class definition)
-    // and in the right order in combination with static properties
-    if (!computedPath.get("key").isConstantExpression()) {
-      const ident = path.scope.generateUidIdentifierBasedOnNode(
-        computedNode.key,
-      );
-      declarations.push(
-        t.variableDeclaration("var", [
-          t.variableDeclarator(ident, computedNode.key),
-        ]),
-      );
-      computedNode.key = t.cloneNode(ident);
+  for (const path of paths) {
+    extractDecorators(path, declarations);
+
+    if (path.node.computed) {
+      path.traverse(classFieldDefinitionEvaluationTDZVisitor, {
+        classBinding,
+        file,
+      });
+
+      path.set("key", maybeExtract(path.get("key"), declarations));
     }
   }
 
   return declarations;
+}
+
+function extractDecorators(path, declarations) {
+  if (hasOwnDecorators(path.node)) {
+    for (const dec of path.get("decorators")) {
+      const args = dec.get("arguments");
+
+      if (args.some(arg => arg.isSpreadElement())) {
+        const ident = path.scope.generateUidIdentifier();
+        declarations.push(
+          t.variableDeclaration("var", [
+            t.variableDeclarator(ident, t.arrayExpression(dec.node.arguments)),
+          ]),
+        );
+        dec.node.arguments = [t.spreadElement(t.cloneNode(ident))];
+      } else {
+        for (let i = 0; i < args.length; i++) {
+          dec.node.arguments[i] = maybeExtract(args[i], declarations);
+        }
+      }
+    }
+  }
+}
+
+function maybeExtract(path, declarations) {
+  if (path.isConstantExpression()) return path.node;
+
+  const ident = path.scope.generateUidIdentifierBasedOnNode(path.node);
+  declarations.push(
+    t.variableDeclaration("var", [t.variableDeclarator(ident, path.node)]),
+  );
+
+  return t.cloneNode(ident);
+}
+
+export function getPropertyName(node) {
+  if (node.computed) return node.key;
+  if (t.isLiteral(node.key)) return t.stringLiteral(String(node.key.value));
+  return t.stringLiteral(node.key.name);
 }

@@ -1,0 +1,2 @@
+@initialize()
+class C {}

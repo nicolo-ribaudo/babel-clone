@@ -8,10 +8,12 @@ import {
 } from "./fields";
 import { hasOwnDecorators, hasDecorators } from "./decorators/misc";
 import { buildDecoratedClass } from "./decorators/big";
-import { injectInitialization, extractComputedKeys } from "./misc";
+import * as staticDecorators from "./decorators/static";
+import { injectInitialization, extractImpureExpressions } from "./misc";
 import {
   enableFeature,
   verifyUsedFeatures,
+  hasFeature,
   FEATURES,
   isLoose,
 } from "./features";
@@ -19,6 +21,25 @@ import {
 import pkg from "../package.json";
 
 export { FEATURES };
+
+function merge(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  if (Array.isArray(a) && Array.isArray(b)) return a.concat(b);
+  if (typeof a === "function" && typeof b === "function") {
+    return (...args) => b(a(...args));
+  }
+  if (typeof a === "object" && typeof b === "object") {
+    for (const key of Object.keys(b)) {
+      a[key] = merge(a[key], b[key]);
+    }
+    return a;
+  }
+  if (typeof a === "boolean" && typeof b === "boolean") {
+    return a || b;
+  }
+  throw new Error(`Internal error: Unable to merge "${a}" and "${b}"`);
+}
 
 // Note: Versions are represented as an integer. e.g. 7.1.5 is represented
 //       as 70000100005. This method is easier than using a semver-parsing
@@ -57,16 +78,11 @@ export function createClassFeaturePlugin({
         let isDecorated = hasOwnDecorators(path.node);
         const props = [];
         const elements = [];
-        const computedPaths = [];
         const privateNames = new Set();
         const body = path.get("body");
 
         for (const path of body.get("body")) {
           verifyUsedFeatures(path, this.file);
-
-          if (path.node.computed) {
-            computedPaths.push(path);
-          }
 
           if (path.isPrivate()) {
             const { name } = path.node.key.id;
@@ -142,7 +158,7 @@ export function createClassFeaturePlugin({
 
         let keysNodes, staticNodes, instanceNodes, wrapClass, needsClassRef;
 
-        if (isDecorated) {
+        if (isDecorated && hasFeature(this.file, FEATURES.decorators)) {
           staticNodes = keysNodes = [];
           ({ instanceNodes, wrapClass } = buildDecoratedClass(
             ref,
@@ -151,15 +167,31 @@ export function createClassFeaturePlugin({
             this.file,
           ));
         } else {
-          keysNodes = extractComputedKeys(ref, path, computedPaths, this.file);
-          ({ staticNodes, instanceNodes, wrapClass } = buildFieldsInitNodes(
-            ref,
-            path.node.superClass,
-            props,
-            privateNamesMap,
-            state,
-            loose,
+          keysNodes = extractImpureExpressions(ref, path, elements, this.file);
+
+          ({ staticNodes, instanceNodes, wrapClass } = merge(
+            { staticNodes, instanceNodes },
+            buildFieldsInitNodes(
+              ref,
+              path.node.superClass,
+              elements,
+              privateNamesMap,
+              state,
+              loose,
+            ),
           ));
+
+          if (isDecorated) {
+            ({ instanceNodes } = merge(
+              { instanceNodes },
+              staticDecorators.applyClassInitializers(path),
+            ));
+
+            ({ staticNodes, needsClassRef } = merge(
+              { staticNodes },
+              staticDecorators.applyClassWrappers(path, ref),
+            ));
+          }
         }
 
         if (instanceNodes.length > 0) {
@@ -194,8 +226,8 @@ export function createClassFeaturePlugin({
             ...staticNodes,
           ]);
         } else {
-        path.insertBefore(keysNodes);
-        path.insertAfter([...privateNamesNodes, ...staticNodes]);
+          path.insertBefore(keysNodes);
+          path.insertAfter([...privateNamesNodes, ...staticNodes]);
         }
       },
 

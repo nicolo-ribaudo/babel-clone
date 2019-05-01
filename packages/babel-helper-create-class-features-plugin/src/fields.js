@@ -4,6 +4,11 @@ import ReplaceSupers, {
 } from "@babel/helper-replace-supers";
 import memberExpressionToFunctions from "@babel/helper-member-expression-to-functions";
 import optimiseCall from "@babel/helper-optimise-call-expression";
+import {
+  extractInitializerFn,
+  extractElementWrappers,
+} from "./decorators/static";
+import { getPropertyName } from "./misc";
 
 export function buildPrivateNamesMap(props) {
   const privateNamesMap = new Map();
@@ -403,13 +408,12 @@ function buildPublicFieldInitLoose(ref, prop) {
 }
 
 function buildPublicFieldInitSpec(ref, prop, state) {
-  const { key, computed } = prop.node;
   const value = prop.node.value || prop.scope.buildUndefinedNode();
 
   return t.expressionStatement(
     t.callExpression(state.addHelper("defineProperty"), [
       ref,
-      computed || t.isLiteral(key) ? key : t.stringLiteral(key.name),
+      getPropertyName(prop.node),
       value,
     ]),
   );
@@ -427,7 +431,12 @@ function buildPrivateStaticMethodInitLoose(ref, prop, state, privateNamesMap) {
   `;
 }
 
-function buildPrivateMethodDeclaration(prop, privateNamesMap, loose = false) {
+function buildPrivateMethodDeclaration(
+  prop,
+  privateNamesMap,
+  wrappers,
+  loose = false,
+) {
   const privateName = privateNamesMap.get(prop.node.key.id.name);
   const {
     id,
@@ -439,13 +448,20 @@ function buildPrivateMethodDeclaration(prop, privateNamesMap, loose = false) {
     static: isStatic,
   } = privateName;
   const { params, body, generator, async } = prop.node;
-  const methodValue = t.functionExpression(
-    methodId,
+  let methodValue = t.functionExpression(
+    // TODO: Always use methodId. It's safe to do, but
+    // it generates a lot of noise in the tests.
+    isStatic && !loose ? id : methodId,
     params,
     body,
     generator,
     async,
   );
+
+  for (const fn of wrappers) {
+    methodValue = t.callExpression(fn, [methodValue]);
+  }
+
   const isGetter = getId && !getterDeclared && params.length === 0;
   const isSetter = setId && !setterDeclared && params.length > 0;
 
@@ -469,16 +485,42 @@ function buildPrivateMethodDeclaration(prop, privateNamesMap, loose = false) {
   }
   if (isStatic && !loose) {
     return t.variableDeclaration("var", [
-      t.variableDeclarator(
-        id,
-        t.functionExpression(id, params, body, generator, async),
-      ),
+      t.variableDeclarator(id, methodValue),
     ]);
   }
 
   return t.variableDeclaration("var", [
     t.variableDeclarator(methodId, methodValue),
   ]);
+}
+
+function buildInitializerCall(fn, target, prop, value) {
+  const name = getPropertyName(prop);
+  const args = value ? [target, name, value] : [target, name];
+
+  return t.expressionStatement(t.callExpression(fn, args));
+}
+
+function buildPublicMethodWrapper(wrappers, ref, isInstance, node) {
+  const obj = isInstance
+    ? t.memberExpression(ref, t.identifier("prototype"))
+    : ref;
+  const name = getPropertyName(node);
+  const key = t.identifier(node.kind === "method" ? "value" : node.kind);
+
+  let value = template.expression.ast`
+    Object.getOwnPropertyDescriptor(${obj}, ${name}).${key}
+  `;
+
+  for (const fn of wrappers) {
+    value = t.callExpression(fn, [value]);
+  }
+
+  return template.statement.ast`
+    Object.defineProperty(${t.cloneNode(obj)}, ${t.cloneNode(name)}, {
+      ${t.cloneNode(key)}: ${value}
+    });
+  `;
 }
 
 const thisContextVisitor = traverse.visitors.merge([
@@ -533,12 +575,60 @@ export function buildFieldsInitNodes(
     const isField = prop.isProperty();
     const isMethod = !isField;
 
+    const initializer = extractInitializerFn(prop);
+    const hasInitializer = !!initializer;
+    const wrappers = extractElementWrappers(prop);
+    const hasWrappers = wrappers.length > 0;
+
     if (isStatic || (isMethod && isPrivate)) {
       const replaced = replaceThisContext(prop, ref, superRef, state, loose);
       needsClassRef = needsClassRef || replaced;
     }
 
+    if (hasWrappers && isPublic) {
+      staticNodes.push(
+        buildPublicMethodWrapper(
+          wrappers,
+          t.cloneNode(ref),
+          isInstance,
+          prop.node,
+        ),
+      );
+    }
+
     switch (true) {
+      case hasInitializer && isStatic && isField:
+        needsClassRef = true;
+        staticNodes.push(
+          buildInitializerCall(
+            initializer,
+            t.cloneNode(ref),
+            prop.node,
+            prop.node.init || prop.scope.buildUndefinedNode(),
+          ),
+        );
+        break;
+      case hasInitializer && isStatic && isMethod:
+        needsClassRef = true;
+        staticNodes.push(
+          buildInitializerCall(initializer, t.cloneNode(ref), prop.node),
+        );
+        break;
+      case hasInitializer && isInstance && isField:
+        instanceNodes.push(
+          buildInitializerCall(
+            initializer,
+            t.thisExpression(),
+            prop.node,
+            prop.node.init || prop.scope.buildUndefinedNode(),
+          ),
+        );
+        break;
+      case hasInitializer && isInstance && isMethod:
+        instanceNodes.push(
+          buildInitializerCall(initializer, t.thisExpression(), prop.node),
+        );
+        break;
       case isStatic && isPrivate && isField && loose:
         needsClassRef = true;
         staticNodes.push(
@@ -584,7 +674,7 @@ export function buildFieldsInitNodes(
           ),
         );
         staticNodes.push(
-          buildPrivateMethodDeclaration(prop, privateNamesMap, loose),
+          buildPrivateMethodDeclaration(prop, privateNamesMap, wrappers, loose),
         );
         break;
       case isInstance && isPrivate && isMethod && !loose:
@@ -596,19 +686,19 @@ export function buildFieldsInitNodes(
           ),
         );
         staticNodes.push(
-          buildPrivateMethodDeclaration(prop, privateNamesMap, loose),
+          buildPrivateMethodDeclaration(prop, privateNamesMap, wrappers, loose),
         );
         break;
       case isStatic && isPrivate && isMethod && !loose:
         needsClassRef = true;
         staticNodes.push(
-          buildPrivateMethodDeclaration(prop, privateNamesMap, loose),
+          buildPrivateMethodDeclaration(prop, privateNamesMap, wrappers, loose),
         );
         break;
       case isStatic && isPrivate && isMethod && loose:
         needsClassRef = true;
         staticNodes.push(
-          buildPrivateMethodDeclaration(prop, privateNamesMap, loose),
+          buildPrivateMethodDeclaration(prop, privateNamesMap, wrappers, loose),
         );
         staticNodes.push(
           buildPrivateStaticMethodInitLoose(
@@ -628,7 +718,8 @@ export function buildFieldsInitNodes(
         );
         break;
       default:
-        throw new Error("Unreachable.");
+        // public methods and accessors
+        break;
     }
   }
 
@@ -637,7 +728,7 @@ export function buildFieldsInitNodes(
     instanceNodes: instanceNodes.filter(Boolean),
     wrapClass(path, needsRef) {
       for (const prop of props) {
-        prop.remove();
+        if (prop.isProperty() || prop.isPrivate()) prop.remove();
       }
 
       if (!needsClassRef && !needsRef) return path;

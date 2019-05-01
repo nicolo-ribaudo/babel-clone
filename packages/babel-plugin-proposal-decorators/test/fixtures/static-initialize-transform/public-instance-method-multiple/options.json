@@ -1,0 +1,3 @@
+{
+  "throws": "Only one @initialize decorator per element is allowed."
+}

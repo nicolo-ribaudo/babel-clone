@@ -1,0 +1,8 @@
+{
+  "plugins": [
+    ["proposal-decorators", { "static": true }],
+    "proposal-class-properties",
+    "proposal-private-methods",
+    ["external-helpers", { "helperVersion": "7.1000.0" }]
+  ]
+}

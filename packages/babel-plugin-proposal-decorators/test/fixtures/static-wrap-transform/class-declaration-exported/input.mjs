@@ -1,0 +1,1 @@
+export @wrap(f) class A {}
