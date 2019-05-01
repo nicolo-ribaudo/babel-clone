@@ -599,7 +599,7 @@ export function buildFieldsInitNodes(
             initializer,
             t.cloneNode(ref),
             prop.node,
-            prop.node.init || prop.scope.buildUndefinedNode(),
+            prop.node.value || prop.scope.buildUndefinedNode(),
           ),
         );
         break;
@@ -619,7 +619,7 @@ export function buildFieldsInitNodes(
             initializer,
             t.thisExpression(),
             prop.node,
-            prop.node.init || prop.scope.buildUndefinedNode(),
+            prop.node.value || prop.scope.buildUndefinedNode(),
           ),
         );
         break;
