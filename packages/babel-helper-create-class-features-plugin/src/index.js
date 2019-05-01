@@ -72,7 +72,7 @@ export function createClassFeaturePlugin({
 
         verifyUsedFeatures(path, this.file);
 
-        const loose = isLoose(this.file, feature);
+        const loose = isLoose(this.file, FEATURES.fields);
 
         let constructor;
         let isDecorated = hasOwnDecorators(path.node);
