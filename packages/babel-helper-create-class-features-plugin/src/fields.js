@@ -635,12 +635,12 @@ export function buildFieldsInitNodes(
   return {
     staticNodes,
     instanceNodes: instanceNodes.filter(Boolean),
-    wrapClass(path) {
+    wrapClass(path, needsRef) {
       for (const prop of props) {
         prop.remove();
       }
 
-      if (!needsClassRef) return path;
+      if (!needsClassRef && !needsRef) return path;
 
       if (path.isClassExpression()) {
         path.scope.push({ id: ref });

@@ -143,7 +143,7 @@ export function createClassFeaturePlugin({
 
         transformPrivateNamesUsage(ref, path, privateNamesMap, loose, state);
 
-        let keysNodes, staticNodes, instanceNodes, wrapClass;
+        let keysNodes, staticNodes, instanceNodes, wrapClass, needsClassRef;
 
         if (isDecorated) {
           staticNodes = keysNodes = [];
@@ -180,9 +180,26 @@ export function createClassFeaturePlugin({
           );
         }
 
-        path = wrapClass(path);
+        const isExpression = path.isClassExpression();
+
+        if ((privateNamesNodes.length || staticNodes.length) && isExpression) {
+          needsClassRef = true;
+          staticNodes.push(ref);
+        }
+
+        path = wrapClass(path, needsClassRef);
+
+        if (isExpression) {
+          path.replaceExpressionWithStatements([
+            ...keysNodes,
+            path.node,
+            ...privateNamesNodes,
+            ...staticNodes,
+          ]);
+        } else {
         path.insertBefore(keysNodes);
         path.insertAfter([...privateNamesNodes, ...staticNodes]);
+        }
       },
 
       PrivateName(path) {

@@ -1,7 +1,7 @@
 export default (param => {
-  var _class, _temp;
+  var _class;
 
-  return _temp = _class =
+  return _class =
   /*#__PURE__*/
   function () {
     function App() {
@@ -18,5 +18,5 @@ export default (param => {
   }(), _class.props = {
     prop1: 'prop1',
     prop2: 'prop2'
-  }, _temp;
+  }, _class;
 });

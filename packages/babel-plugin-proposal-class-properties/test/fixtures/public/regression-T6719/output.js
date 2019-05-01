@@ -1,7 +1,7 @@
 function withContext(ComposedComponent) {
-  var _class, _temp;
+  var _class;
 
-  return _temp = _class =
+  return _class =
   /*#__PURE__*/
   function (_Component) {
     "use strict";
@@ -20,5 +20,5 @@ function withContext(ComposedComponent) {
       setTitle: PropTypes.func,
       setMeta: PropTypes.func
     })
-  }), _temp;
+  }), _class;
 }

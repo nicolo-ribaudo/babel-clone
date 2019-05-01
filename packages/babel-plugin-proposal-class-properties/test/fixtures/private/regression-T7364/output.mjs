@@ -1,3 +1,5 @@
+var _class, _myAsyncMethod2;
+
 class MyClass {
   constructor() {
     var _this = this;
@@ -20,7 +22,7 @@ class MyClass {
 
 var _myAsyncMethod = new WeakMap();
 
-(class MyClass2 {
+_class = class MyClass2 {
   constructor() {
     var _this2 = this;
 
@@ -38,10 +40,7 @@ var _myAsyncMethod = new WeakMap();
     });
   }
 
-});
-
-var _myAsyncMethod2 = new WeakMap();
-
+}, _myAsyncMethod2 = new WeakMap(), _class;
 export default class MyClass3 {
   constructor() {
     var _this3 = this;

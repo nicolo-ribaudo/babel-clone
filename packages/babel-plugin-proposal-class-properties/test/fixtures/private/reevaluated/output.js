@@ -1,7 +1,7 @@
 function classFactory() {
-  var _class, _temp, _foo, _bar;
+  var _class, _foo, _bar;
 
-  return _temp = _class = class Foo {
+  return _class = class Foo {
     constructor() {
       _foo.set(this, {
         writable: true,
@@ -28,5 +28,5 @@ function classFactory() {
   }, _foo = new WeakMap(), _bar = {
     writable: true,
     value: "bar"
-  }, _temp;
+  }, _class;
 }
