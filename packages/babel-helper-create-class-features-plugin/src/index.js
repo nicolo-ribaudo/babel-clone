@@ -6,11 +6,8 @@ import {
   transformPrivateNamesUsage,
   buildFieldsInitNodes,
 } from "./fields";
-import {
-  hasOwnDecorators,
-  buildDecoratedClass,
-  hasDecorators,
-} from "./decorators";
+import { hasOwnDecorators, hasDecorators } from "./decorators/misc";
+import { buildDecoratedClass } from "./decorators/big";
 import { injectInitialization, extractComputedKeys } from "./misc";
 import {
   enableFeature,

@@ -1,10 +1,11 @@
-import { hasOwnDecorators } from "./decorators";
+import { hasOwnDecorators } from "./decorators/misc";
 
 export const FEATURES = Object.freeze({
   //classes: 1 << 0,
   fields: 1 << 1,
   privateMethods: 1 << 2,
   decorators: 1 << 3,
+  staticDecorators: 1 << 4,
 });
 
 // We can't use a symbol because this needs to always be the same, even if
@@ -30,7 +31,7 @@ export function enableFeature(file, feature, loose) {
   }
 }
 
-function hasFeature(file, feature) {
+export function hasFeature(file, feature) {
   return !!(file.get(featuresKey) & feature);
 }
 
@@ -40,7 +41,10 @@ export function isLoose(file, feature) {
 
 export function verifyUsedFeatures(path, file) {
   if (hasOwnDecorators(path.node)) {
-    if (!hasFeature(file, FEATURES.decorators)) {
+    if (
+      !hasFeature(file, FEATURES.decorators) &&
+      !hasFeature(file, FEATURES.staticDecorators)
+    ) {
       throw path.buildCodeFrameError(
         "Decorators are not enabled." +
           "\nIf you are using " +
@@ -52,11 +56,10 @@ export function verifyUsedFeatures(path, file) {
       );
     }
 
-    if (path.isPrivate()) {
+    if (path.isPrivate() && hasFeature(file, FEATURES.decorators)) {
       throw path.buildCodeFrameError(
-        `Private ${
-          path.isClassMethod() ? "methods" : "fields"
-        } in decorated classes are not supported yet.`,
+        `Private ${path.isClassMethod() ? "methods" : "fields"} in decorated ` +
+          `classes are not only supported when using static decorators.`,
       );
     }
   }
