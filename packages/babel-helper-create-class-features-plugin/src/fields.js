@@ -550,6 +550,8 @@ export function buildFieldsInitNodes(
     const hasWrappers = wrappers.length > 0;
     const registers = staticDecorators.extractElementRegisters(prop);
     const hasRegisters = registers.length > 0;
+    const expositors = staticDecorators.extractElementExpositors(prop);
+    const hasExpositors = expositors.length > 0;
 
     if (isStatic || (isMethod && isPrivate)) {
       const replaced = replaceThisContext(prop, ref, superRef, state, loose);
@@ -574,6 +576,17 @@ export function buildFieldsInitNodes(
           t.cloneNode(ref),
           isInstance,
           prop.node,
+        ),
+      );
+    } else if (hasExpositors && isPrivate) {
+      finalNodes.push(
+        ...staticDecorators.buildExpositorCalls(
+          expositors,
+          t.cloneNode(ref),
+          isInstance,
+          prop.node,
+          privateNamesMap,
+          state,
         ),
       );
     }

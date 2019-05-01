@@ -185,3 +185,93 @@ export function buildRegisterCalls(registers, ref, isInstance, node) {
     ),
   );
 }
+
+export function extractElementExpositors(el) {
+  const decorators = extractDecorators(el, "expose");
+  if (decorators.length === 0) return [];
+
+  if (!el.isPrivate()) {
+    throw decorators[0].buildCodeFrameError(
+      "@expose is only allowed on private elements.",
+    );
+  }
+
+  return decorators.map(dec => {
+    const fn = getLoneArg(dec.node, el.scope);
+    dec.remove();
+    return fn;
+  });
+}
+
+export function disallowClassExpositor(path) {
+  const decorators = extractDecorators(path, "expose");
+
+  if (decorators.length > 0) {
+    throw decorators[0].buildCodeFrameError(
+      "@expose is only allowed on private elements.",
+    );
+  }
+}
+
+export function buildExpositorCalls(
+  expositors,
+  ref,
+  isInstance,
+  node,
+  privateNamesMap,
+  file,
+) {
+  const obj = isInstance
+    ? t.memberExpression(ref, t.identifier("prototype"))
+    : ref;
+  const { name } = node.key.id;
+  const {
+    id,
+    static: isStatic,
+    method: isMethod,
+    methodId,
+    getId,
+    setId,
+  } = privateNamesMap.get(name);
+
+  let getFn, setFn;
+
+  if (isStatic) {
+    const helperGet = isMethod
+      ? "classStaticPrivateMethodGet"
+      : "classStaticPrivateFieldSpecGet";
+    const helperSet = isMethod
+      ? "classStaticPrivateMethodSet"
+      : "classStaticPrivateFieldSpecSet";
+
+    getFn = template.expression.ast`
+      obj => ${file.addHelper(helperGet)}(obj, ${ref}, ${id})
+    `;
+    setFn = template.expression.ast`
+      (obj, val) => ${file.addHelper(helperSet)}(obj, ${ref}, ${id}, val)
+    `;
+  } else if (isMethod && !getId && !setId) {
+    getFn = template.expression.ast`
+      obj => ${file.addHelper("classPrivateMethodGet")}(obj, ${id}, ${methodId})
+    `;
+    setFn = file.addHelper("classPrivateMethodSet");
+  } else {
+    getFn = template.expression.ast`
+      obj => ${file.addHelper("classPrivateFieldGet")}(obj, ${id})
+    `;
+    setFn = template.expression.ast`
+      (obj, val) => ${file.addHelper("classPrivateFieldSet")}(obj, ${id}, val)
+    `;
+  }
+
+  return expositors.map(fn =>
+    t.expressionStatement(
+      t.callExpression(fn, [
+        t.cloneNode(obj),
+        t.stringLiteral("#" + name),
+        getFn,
+        setFn,
+      ]),
+    ),
+  );
+}

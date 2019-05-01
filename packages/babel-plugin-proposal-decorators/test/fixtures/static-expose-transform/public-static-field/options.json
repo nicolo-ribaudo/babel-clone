@@ -1,0 +1,3 @@
+{
+  "throws": "@expose is only allowed on private elements."
+}

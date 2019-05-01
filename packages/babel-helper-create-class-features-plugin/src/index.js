@@ -178,6 +178,8 @@ export function createClassFeaturePlugin({
             this.file,
           ));
         } else {
+          staticDecorators.disallowClassExpositor(path);
+
           keysNodes = extractImpureExpressions(ref, path, elements, this.file);
 
           ({ staticNodes, instanceNodes, finalNodes, wrapClass } = merge(
