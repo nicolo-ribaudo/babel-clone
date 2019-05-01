@@ -72,7 +72,13 @@ export function createClassFeaturePlugin({
 
         verifyUsedFeatures(path, this.file);
 
-        const loose = isLoose(this.file, FEATURES.fields);
+        // TODO: Decorators might have their own unrelated loose
+        // mode in the future.
+        // Currently, if both fields and privateMethods are enabled,
+        // their "loose" mode is the same.
+        const loose =
+          isLoose(this.file, FEATURES.fields) ||
+          isLoose(this.file, FEATURES.privateMethods);
 
         let constructor;
         let isDecorated = hasOwnDecorators(path.node);
