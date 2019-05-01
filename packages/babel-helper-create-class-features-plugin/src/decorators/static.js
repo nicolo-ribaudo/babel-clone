@@ -1,5 +1,6 @@
 import { types as t, template } from "@babel/core";
 import { hasOwnDecorators } from "./misc";
+import { getPropertyName } from "../misc";
 
 function getLoneArg(dec, scope) {
   const args = dec.arguments;
@@ -62,6 +63,13 @@ export function applyClassInitializers(path) {
   return { instanceNodes };
 }
 
+export function buildInitializerCall(fn, target, prop, value) {
+  const name = getPropertyName(prop);
+  const args = value ? [target, name, value] : [target, name];
+
+  return t.expressionStatement(t.callExpression(fn, args));
+}
+
 export function extractElementWrappers(el) {
   const decorators = extractDecorators(el, "wrap");
   if (decorators.length === 0) return [];
@@ -97,4 +105,83 @@ export function applyClassWrappers(path, ref) {
       ),
     ],
   };
+}
+
+export function buildPublicMethodWrapper(wrappers, ref, isInstance, node) {
+  const obj = isInstance
+    ? t.memberExpression(ref, t.identifier("prototype"))
+    : ref;
+  const name = getPropertyName(node);
+  const isMethod = node.kind === "method";
+
+  let value;
+  if (isMethod) {
+    value = t.memberExpression(obj, name, true);
+  } else {
+    value = template.expression.ast`
+      Object.getOwnPropertyDescriptor(
+        ${obj},
+        ${name}
+      ).${t.identifier(node.kind)}
+    `;
+  }
+
+  for (const fn of wrappers) {
+    value = t.callExpression(fn, [value]);
+  }
+
+  if (isMethod) {
+    return template.statement.ast`
+      ${t.cloneNode(obj)}[${t.cloneNode(name)}] = ${value};
+    `;
+  } else {
+    return template.statement.ast`
+      Object.defineProperty(${t.cloneNode(obj)}, ${t.cloneNode(name)}, {
+        ${t.identifier(node.kind)}: ${value}
+      });
+    `;
+  }
+}
+
+export function extractElementRegisters(el) {
+  const decorators = extractDecorators(el, "register");
+  if (decorators.length === 0) return [];
+
+  if (el.isPrivate()) {
+    throw decorators[0].buildCodeFrameError(
+      "@register is not allowed on private elements.",
+    );
+  }
+
+  return decorators.map(dec => {
+    const fn = getLoneArg(dec.node, el.scope);
+    dec.remove();
+    return fn;
+  });
+}
+
+export function applyClassRegisters(path, ref) {
+  const decorators = extractDecorators(path, "register");
+  if (!decorators.length) return null;
+
+  const calls = decorators.map(dec => {
+    const fn = getLoneArg(dec.node, dec.scope);
+    dec.remove();
+    return t.expressionStatement(t.callExpression(fn, [t.cloneNode(ref)]));
+  });
+
+  return { needsClassRef: true, finalNodes: calls };
+}
+
+export function buildRegisterCalls(registers, ref, isInstance, node) {
+  const obj = isInstance
+    ? t.memberExpression(ref, t.identifier("prototype"))
+    : ref;
+  const name = getPropertyName(node);
+
+  return registers.map(fn =>
+    t.expressionStatement(
+      t.callExpression(fn, [t.cloneNode(obj), t.cloneNode(name)]),
+    ),
+  );
 }

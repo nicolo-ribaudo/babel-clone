@@ -162,10 +162,15 @@ export function createClassFeaturePlugin({
 
         transformPrivateNamesUsage(ref, path, privateNamesMap, loose, state);
 
-        let keysNodes, staticNodes, instanceNodes, wrapClass, needsClassRef;
+        let keysNodes,
+          staticNodes,
+          instanceNodes,
+          finalNodes,
+          wrapClass,
+          needsClassRef;
 
         if (isDecorated && hasFeature(this.file, FEATURES.decorators)) {
-          staticNodes = keysNodes = [];
+          staticNodes = keysNodes = finalNodes = [];
           ({ instanceNodes, wrapClass } = buildDecoratedClass(
             ref,
             path,
@@ -175,7 +180,7 @@ export function createClassFeaturePlugin({
         } else {
           keysNodes = extractImpureExpressions(ref, path, elements, this.file);
 
-          ({ staticNodes, instanceNodes, wrapClass } = merge(
+          ({ staticNodes, instanceNodes, finalNodes, wrapClass } = merge(
             { staticNodes, instanceNodes },
             buildFieldsInitNodes(
               ref,
@@ -197,6 +202,11 @@ export function createClassFeaturePlugin({
               { staticNodes },
               staticDecorators.applyClassWrappers(path, ref),
             ));
+
+            ({ finalNodes, needsClassRef } = merge(
+              { finalNodes },
+              staticDecorators.applyClassRegisters(path, ref),
+            ));
           }
         }
 
@@ -217,9 +227,14 @@ export function createClassFeaturePlugin({
 
         const isExpression = path.isClassExpression();
 
-        if ((privateNamesNodes.length || staticNodes.length) && isExpression) {
+        if (
+          (privateNamesNodes.length ||
+            staticNodes.length ||
+            finalNodes.length) &&
+          isExpression
+        ) {
           needsClassRef = true;
-          staticNodes.push(ref);
+          finalNodes.push(ref);
         }
 
         path = wrapClass(path, needsClassRef);
@@ -230,10 +245,15 @@ export function createClassFeaturePlugin({
             path.node,
             ...privateNamesNodes,
             ...staticNodes,
+            ...finalNodes,
           ]);
         } else {
           path.insertBefore(keysNodes);
-          path.insertAfter([...privateNamesNodes, ...staticNodes]);
+          path.insertAfter([
+            ...privateNamesNodes,
+            ...staticNodes,
+            ...finalNodes,
+          ]);
         }
       },
 

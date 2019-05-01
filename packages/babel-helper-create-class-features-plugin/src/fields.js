@@ -4,10 +4,7 @@ import ReplaceSupers, {
 } from "@babel/helper-replace-supers";
 import memberExpressionToFunctions from "@babel/helper-member-expression-to-functions";
 import optimiseCall from "@babel/helper-optimise-call-expression";
-import {
-  extractInitializerFn,
-  extractElementWrappers,
-} from "./decorators/static";
+import * as staticDecorators from "./decorators/static";
 import { getPropertyName } from "./misc";
 
 export function buildPrivateNamesMap(props) {
@@ -494,49 +491,6 @@ function buildPrivateMethodDeclaration(
   ]);
 }
 
-function buildInitializerCall(fn, target, prop, value) {
-  const name = getPropertyName(prop);
-  const args = value ? [target, name, value] : [target, name];
-
-  return t.expressionStatement(t.callExpression(fn, args));
-}
-
-function buildPublicMethodWrapper(wrappers, ref, isInstance, node) {
-  const obj = isInstance
-    ? t.memberExpression(ref, t.identifier("prototype"))
-    : ref;
-  const name = getPropertyName(node);
-  const isMethod = node.kind === "method";
-
-  let value;
-  if (isMethod) {
-    value = t.memberExpression(obj, name, true);
-  } else {
-    value = template.expression.ast`
-      Object.getOwnPropertyDescriptor(
-        ${obj},
-        ${name}
-      ).${t.identifier(node.kind)}
-    `;
-  }
-
-  for (const fn of wrappers) {
-    value = t.callExpression(fn, [value]);
-  }
-
-  if (isMethod) {
-    return template.statement.ast`
-      ${t.cloneNode(obj)}[${t.cloneNode(name)}] = ${value};
-    `;
-  } else {
-    return template.statement.ast`
-      Object.defineProperty(${t.cloneNode(obj)}, ${t.cloneNode(name)}, {
-        ${t.identifier(node.kind)}: ${value}
-      });
-    `;
-  }
-}
-
 const thisContextVisitor = traverse.visitors.merge([
   {
     ThisExpression(path, state) {
@@ -579,6 +533,7 @@ export function buildFieldsInitNodes(
 ) {
   const staticNodes = [];
   const instanceNodes = [];
+  const finalNodes = [];
   let needsClassRef = false;
 
   for (const prop of props) {
@@ -589,10 +544,12 @@ export function buildFieldsInitNodes(
     const isField = prop.isProperty();
     const isMethod = !isField;
 
-    const initializer = extractInitializerFn(prop);
+    const initializer = staticDecorators.extractInitializerFn(prop);
     const hasInitializer = !!initializer;
-    const wrappers = extractElementWrappers(prop);
+    const wrappers = staticDecorators.extractElementWrappers(prop);
     const hasWrappers = wrappers.length > 0;
+    const registers = staticDecorators.extractElementRegisters(prop);
+    const hasRegisters = registers.length > 0;
 
     if (isStatic || (isMethod && isPrivate)) {
       const replaced = replaceThisContext(prop, ref, superRef, state, loose);
@@ -601,8 +558,19 @@ export function buildFieldsInitNodes(
 
     if (hasWrappers && isPublic) {
       staticNodes.push(
-        buildPublicMethodWrapper(
+        staticDecorators.buildPublicMethodWrapper(
           wrappers,
+          t.cloneNode(ref),
+          isInstance,
+          prop.node,
+        ),
+      );
+    }
+
+    if (hasRegisters && isPublic) {
+      finalNodes.push(
+        ...staticDecorators.buildRegisterCalls(
+          registers,
           t.cloneNode(ref),
           isInstance,
           prop.node,
@@ -614,7 +582,7 @@ export function buildFieldsInitNodes(
       case hasInitializer && isStatic && isField:
         needsClassRef = true;
         staticNodes.push(
-          buildInitializerCall(
+          staticDecorators.buildInitializerCall(
             initializer,
             t.cloneNode(ref),
             prop.node,
@@ -625,12 +593,16 @@ export function buildFieldsInitNodes(
       case hasInitializer && isStatic && isMethod:
         needsClassRef = true;
         staticNodes.push(
-          buildInitializerCall(initializer, t.cloneNode(ref), prop.node),
+          staticDecorators.buildInitializerCall(
+            initializer,
+            t.cloneNode(ref),
+            prop.node,
+          ),
         );
         break;
       case hasInitializer && isInstance && isField:
         instanceNodes.push(
-          buildInitializerCall(
+          staticDecorators.buildInitializerCall(
             initializer,
             t.thisExpression(),
             prop.node,
@@ -640,7 +612,11 @@ export function buildFieldsInitNodes(
         break;
       case hasInitializer && isInstance && isMethod:
         instanceNodes.push(
-          buildInitializerCall(initializer, t.thisExpression(), prop.node),
+          staticDecorators.buildInitializerCall(
+            initializer,
+            t.thisExpression(),
+            prop.node,
+          ),
         );
         break;
       case isStatic && isPrivate && isField && loose:
@@ -740,6 +716,7 @@ export function buildFieldsInitNodes(
   return {
     staticNodes,
     instanceNodes: instanceNodes.filter(Boolean),
+    finalNodes,
     wrapClass(path, needsRef) {
       for (const prop of props) {
         if (prop.isProperty() || prop.isPrivate()) prop.remove();
