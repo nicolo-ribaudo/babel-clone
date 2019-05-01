@@ -1,0 +1,3 @@
+{
+  "throws": "@wrap decorators are only allowed on classes or methods."
+}
