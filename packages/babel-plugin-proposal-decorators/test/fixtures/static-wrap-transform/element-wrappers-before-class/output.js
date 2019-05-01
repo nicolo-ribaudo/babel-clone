@@ -8,9 +8,7 @@ class A {
 
 }
 
-Object.defineProperty(A.prototype, "foo", {
-  value: _h(Object.getOwnPropertyDescriptor(A.prototype, "foo").value)
-});
+A.prototype["foo"] = _h(A.prototype["foo"]);
 
 var _bar = _i(function _bar() {});
 

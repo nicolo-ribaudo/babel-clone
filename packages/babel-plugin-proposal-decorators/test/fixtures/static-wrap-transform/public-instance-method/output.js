@@ -5,6 +5,4 @@ class A {
 
 }
 
-Object.defineProperty(A.prototype, "fn", {
-  value: _f(Object.getOwnPropertyDescriptor(A.prototype, "fn").value)
-});
+A.prototype["fn"] = _f(A.prototype["fn"]);

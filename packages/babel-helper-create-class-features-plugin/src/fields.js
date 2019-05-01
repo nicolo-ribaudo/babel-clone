@@ -506,21 +506,35 @@ function buildPublicMethodWrapper(wrappers, ref, isInstance, node) {
     ? t.memberExpression(ref, t.identifier("prototype"))
     : ref;
   const name = getPropertyName(node);
-  const key = t.identifier(node.kind === "method" ? "value" : node.kind);
+  const isMethod = node.kind === "method";
 
-  let value = template.expression.ast`
-    Object.getOwnPropertyDescriptor(${obj}, ${name}).${key}
-  `;
+  let value;
+  if (isMethod) {
+    value = t.memberExpression(obj, name, true);
+  } else {
+    value = template.expression.ast`
+      Object.getOwnPropertyDescriptor(
+        ${obj},
+        ${name}
+      ).${t.identifier(node.kind)}
+    `;
+  }
 
   for (const fn of wrappers) {
     value = t.callExpression(fn, [value]);
   }
 
-  return template.statement.ast`
-    Object.defineProperty(${t.cloneNode(obj)}, ${t.cloneNode(name)}, {
-      ${t.cloneNode(key)}: ${value}
-    });
-  `;
+  if (isMethod) {
+    return template.statement.ast`
+      ${t.cloneNode(obj)}[${t.cloneNode(name)}] = ${value};
+    `;
+  } else {
+    return template.statement.ast`
+      Object.defineProperty(${t.cloneNode(obj)}, ${t.cloneNode(name)}, {
+        ${t.identifier(node.kind)}: ${value}
+      });
+    `;
+  }
 }
 
 const thisContextVisitor = traverse.visitors.merge([
