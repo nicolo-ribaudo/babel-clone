@@ -13,54 +13,6 @@ function getLoneArg(dec, scope) {
   }
 }
 
-function handleRegisterDecorators(path, ref) {
-  const nodes = [];
-
-  const target =
-    path.isClass() || path.node.static
-      ? ref
-      : t.memberExpression(ref, t.identifier("prototype"));
-
-  const name =
-    path.isClass() || path.isPrivate()
-      ? null
-      : path.node.computed
-      ? path.node.key
-      : t.stringLiteral(
-          t.isIdentifier(path.node.key)
-            ? path.node.key.name
-            : path.node.key.value,
-        );
-
-  for (const dec of path.get("decorators")) {
-    if (dec.node.id.name === "register") {
-      const fn = getLoneArg(dec.node, path.scope);
-      const args = name
-        ? [t.cloneNode(target), t.cloneNode(name)]
-        : [t.cloneNode(target)];
-
-      nodes.unshift(t.expressionStatement(t.callExpression(fn, args)));
-
-      dec.remove();
-    }
-  }
-
-  return nodes;
-}
-
-export function transformClassDecorators(ref, path) {
-  const staticNodes = [];
-
-  for (const el of path.get("body.body")) {
-    staticNodes.push(...handleRegisterDecorators(el, ref));
-  }
-  staticNodes.push(...handleRegisterDecorators(path, ref));
-
-  return {
-    staticNodes,
-  };
-}
-
 function extractDecorators(path, name) {
   const decorators = [];
 
