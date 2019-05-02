@@ -27,6 +27,7 @@ const testContext = vm.createContext({
   setTimeout: setTimeout,
   setImmediate: setImmediate,
   expect,
+  jest,
 });
 testContext.global = testContext;
 
